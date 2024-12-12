@@ -1,3 +1,183 @@
+以下是经过优化的代码，修复了潜在的问题并改进了结构和功能：
+
+1. 添加了 `try-catch` 错误处理，确保网络请求失败时不会导致应用崩溃。
+2. 添加了错误图片显示（在 `Image.network` 上添加 `errorBuilder`）。
+3. 改善了 UI 体验，增加了加载失败的提示。
+
+修改后的代码如下：
+
+```dart
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+void main() {
+  runApp(const BooruApp());
+}
+
+class BooruApp extends StatelessWidget {
+  const BooruApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final String baseUrl = 'https://api.rule34.xxx/index.php';
+  List<dynamic> posts = [];
+  bool isLoading = false;
+
+  Future<void> fetchPosts({String tags = '', int limit = 10, int page = 0}) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    final url = Uri.parse(
+      '$baseUrl?page=dapi&s=post&q=index&tags=$tags&limit=$limit&pid=$page&json=1',
+    );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          posts = data;
+        });
+      } else {
+        throw Exception('Failed to load posts: ${response.statusCode}');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error')),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchPosts();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Booru Viewer'),
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : posts.isEmpty
+              ? const Center(child: Text('No posts found'))
+              : ListView.builder(
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return ListTile(
+                      leading: Image.network(
+                        post['preview_url'] ?? '',
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                      ),
+                      title: Text('Post ID: ${post['id']}'),
+                      subtitle: Text(
+                        'Tags: ${post['tags']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PostDetailsPage(post: post),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+class PostDetailsPage extends StatelessWidget {
+  final dynamic post;
+
+  const PostDetailsPage({Key? key, required this.post}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Post Details: ${post['id']}'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Image.network(
+              post['file_url'] ?? '',
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 100),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tags: ${post['tags']}',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Score: ${post['score']}',
+              style: const TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+### **关键改进点**
+1. **网络错误处理**：
+   - 在 `Image.network` 中添加 `errorBuilder`，当图片加载失败时显示默认图标。
+   - `fetchPosts` 方法添加了异常处理，避免程序因网络问题崩溃。
+
+2. **用户体验**：
+   - 在没有找到内容时显示 "No posts found" 的提示。
+   - 限制标签信息显示的行数，避免过长的文本溢出。
+
+3. **代码健壮性**：
+   - 使用 `?? ''` 确保字段为空时不会抛出异常。
+   - 改善了错误消息的展示方式。
+
+### **测试方法**
+1. 运行程序后，检查列表是否正常显示。
+2. 确保点击某一条目后，可以正确跳转到详情页。
+3. 测试错误情况下的提示信息是否合理。
+
+若仍有问题，可进一步排查或提供 API 返回的具体数据。
+
+
+
+
+
 下面是一个使用 Flutter 和 Material 3 构建的简单 Booru 应用程序的示例代码。该应用程序使用上述 API 来获取帖子、标签和评论，并以基本的方式显示数据。
 
 ### 前置要求
